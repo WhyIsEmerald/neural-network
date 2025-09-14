@@ -1,7 +1,7 @@
 package network
 
 import (
-	"math"
+	"github.com/WhyIsEmerald/neural_network/internals/math"
 )
 
 type neuron struct {
@@ -37,30 +37,6 @@ func (n *neuron) resolveOutput(inputs []float64) float64 {
 		output += n.inputs[i] * n.weights[i]
 	}
 	output += n.bias
-	n.output = sigmoid(output)
+	n.output = math.Sigmoid(output)
 	return n.output
-}
-
-func sigmoid(x float64) float64 {
-	return 1 / (1 + math.Exp(-x))
-}
-
-func relu(x float64) float64 {
-	if x > 0 {
-		return x
-	}
-	return 0
-}
-
-func softmax(x []float64) []float64 {
-	output := make([]float64, len(x))
-	sum := 0.0
-	for i := range x {
-		output[i] = math.Exp(x[i])
-		sum += output[i]
-	}
-	for i := range output {
-		output[i] /= sum
-	}
-	return output
 }
