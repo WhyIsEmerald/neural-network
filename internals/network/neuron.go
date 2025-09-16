@@ -1,7 +1,7 @@
 package network
 
 import (
-	"github.com/WhyIsEmerald/neural_network/internals/math"
+	"github.com/whyisemerald/neural_network/internals/math"
 )
 
 type neuron struct {

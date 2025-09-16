@@ -2,6 +2,8 @@ package math
 
 import (
 	"errors"
+
+	"github.com/whyisemerald/neural_network/internals/routines"
 )
 
 type Matrix struct {
@@ -61,15 +63,23 @@ func (m1 *Matrix) DotProduct(m2 *Matrix) (*Matrix, error) {
 		return nil, errors.New("Matrix dimensions are incompatable")
 	}
 	out := NewMatrix(r1, c2, make([]float64, r1*c2))
+
+	pool := routines.GlobalPool
+
 	for i := 0; i < r1; i++ {
-		for j := 0; j < c2; j++ {
-			sum := 0.0
-			for k := 0; k < c1; k++ {
-				sum += m1.Get(i, k) * m2.Get(k, j)
+		row := i
+		pool.AddTask(func() {
+			for j := 0; j < c2; j++ {
+				sum := 0.0
+				for k := 0; k < c1; k++ {
+					sum += m1.Get(row, k) * m2.Get(k, j)
+				}
+				out.Set(row, j, sum)
 			}
-			out.Set(i, j, sum)
-		}
+		})
 	}
+
+	pool.WaitAll()
 	return out, nil
 }
 

@@ -1,6 +1,15 @@
 package routines
 
-import "sync"
+import (
+	"runtime"
+	"sync"
+)
+
+var GlobalPool *Pool
+
+func init() {
+	GlobalPool = NewPool(runtime.NumCPU())
+}
 
 // Pool manages a collection of workers.
 type Pool struct {
