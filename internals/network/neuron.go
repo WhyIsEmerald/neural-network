@@ -9,6 +9,7 @@ type neuron struct {
 	weights []float64
 	bias    float64
 	output  float64
+	delta   float64
 }
 
 func newNeuron(weights []float64, bias float64) *neuron {
