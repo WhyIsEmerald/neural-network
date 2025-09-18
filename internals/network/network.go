@@ -1,9 +1,19 @@
 package network
 
-import "github.com/whyisemerald/neural_network/internals/math"
+import (
+	"encoding/json"
+	"io/ioutil"
+	"os"
+
+	"github.com/whyisemerald/neural_network/internals/math"
+)
 
 type Network struct {
 	Layers []*Layer
+}
+type NetworkData struct {
+	Weights [][][]float64
+	Biases  [][]float64
 }
 
 func NewNetwork(layerSizes []int) *Network {
@@ -71,4 +81,74 @@ func (n *Network) TrainLoop(input, expected [][]float64, learningRate float64, e
 			n.Train(in, expected[j], learningRate)
 		}
 	}
+}
+
+func (n *Network) getWeights() [][][]float64 {
+	weights := make([][][]float64, len(n.Layers))
+	for i, layer := range n.Layers {
+		weights[i] = make([][]float64, len(layer.Neurons))
+		for j, neuron := range layer.Neurons {
+			weights[i][j] = neuron.weights
+		}
+	}
+	return weights
+}
+
+func (n *Network) getBiases() [][]float64 {
+	biases := make([][]float64, len(n.Layers))
+	for i, layer := range n.Layers {
+		biases[i] = make([]float64, len(layer.Neurons))
+		for j, neuron := range layer.Neurons {
+			biases[i][j] = neuron.bias
+		}
+	}
+	return biases
+}
+
+func (n *Network) setWeights(weights [][][]float64) {
+	for i, layer := range n.Layers {
+		for j, neuron := range layer.Neurons {
+			neuron.weights = weights[i][j]
+		}
+	}
+}
+
+func (n *Network) setBiases(biases [][]float64) {
+	for i, layer := range n.Layers {
+		for j, neuron := range layer.Neurons {
+			neuron.bias = biases[i][j]
+		}
+	}
+}
+
+func (n *Network) Save(path string) error {
+	data := NetworkData{
+		Weights: n.getWeights(),
+		Biases:  n.getBiases(),
+	}
+
+	file, err := json.MarshalIndent(data, "", " ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, file, 0644)
+}
+
+func (n *Network) Load(path string) error {
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	var data NetworkData
+	err = json.Unmarshal(file, &data)
+	if err != nil {
+		return err
+	}
+
+	n.setWeights(data.Weights)
+	n.setBiases(data.Biases)
+
+	return nil
 }
