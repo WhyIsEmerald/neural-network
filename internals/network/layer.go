@@ -24,3 +24,11 @@ func NewLayer(numNeurons, numInputs int) *Layer {
 	}
 	return &Layer{Neurons: neurons, numNeurons: numNeurons, numInputs: numInputs}
 }
+
+func (L *Layer) resolveOutputs(inputs []float64) []float64 {
+	outputs := make([]float64, len(L.Neurons))
+	for i, neuron := range L.Neurons {
+		outputs[i] = neuron.resolveOutput(inputs)
+	}
+	return outputs
+}

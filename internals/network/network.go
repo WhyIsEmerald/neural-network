@@ -30,11 +30,7 @@ func (n *Network) Forward(inputs []float64) []float64 {
 		panic("Input size does not match the number of inputs of the first layer")
 	}
 	for _, layer := range n.Layers {
-		outputs := make([]float64, len(layer.Neurons))
-		for i, neuron := range layer.Neurons {
-			outputs[i] = neuron.resolveOutput(currentInputs)
-		}
-		currentInputs = outputs
+		currentInputs = layer.resolveOutputs(currentInputs)
 	}
 	return currentInputs
 }
