@@ -32,3 +32,12 @@ func (L *Layer) resolveOutputs(inputs []float64) []float64 {
 	}
 	return outputs
 }
+
+func (L *Layer) update(learningRate float64) {
+	for _, neuron := range L.Neurons {
+		for i, input := range neuron.inputs {
+			neuron.weights[i] += learningRate * neuron.delta * input
+		}
+		neuron.bias += learningRate * neuron.delta
+	}
+}
