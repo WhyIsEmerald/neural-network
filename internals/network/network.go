@@ -54,21 +54,16 @@ func (n *Network) Backward(expected []float64) {
 	}
 }
 
-func (n *Network) UpdateWeights(learningRate float64) {
+func (n *Network) Update(learningRate float64) {
 	for _, layer := range n.Layers {
-		for _, neuron := range layer.Neurons {
-			for i, input := range neuron.inputs {
-				neuron.weights[i] += learningRate * neuron.delta * input
-			}
-			neuron.bias += learningRate * neuron.delta
-		}
+		layer.update(learningRate)
 	}
 }
 
 func (n *Network) Train(inputs, expected []float64, learningRate float64) {
 	n.Forward(inputs)
 	n.Backward(expected)
-	n.UpdateWeights(learningRate)
+	n.Update(learningRate)
 }
 
 func (n *Network) TrainLoop(input, expected [][]float64, learningRate float64, epoch int) {
