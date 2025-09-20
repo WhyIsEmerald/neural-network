@@ -22,7 +22,7 @@ type Pool struct {
 
 func NewPool(numWorkers int) *Pool {
 	p := &Pool{
-		Tasks: make(chan func()),
+		Tasks: make(chan func(), numWorkers*2),
 	}
 
 	for i := 1; i <= numWorkers; i++ {

@@ -29,27 +29,15 @@ func Set(row, col int, value float64, m *Matrix) {
 }
 
 func Add(m1, m2, out *Matrix) error {
-	if m1.Rows != m2.Rows || m1.Cols != m2.Cols {
-		return errors.New("matrix dimensions do not match")
-	}
-	for i := 0; i < m1.Rows; i++ {
-		for j := 0; j < m1.Cols; j++ {
-			Set(i, j, Get(i, j, m1)+Get(i, j, m2), out)
-		}
-	}
-	return nil
+	return elementWiseOp(m1, m2, out, func(a, b float64) float64 {
+		return a + b
+	})
 }
 
 func Subtract(m1, m2, out *Matrix) error {
-	if m1.Rows != m2.Rows || m1.Cols != m2.Cols {
-		return errors.New("Matrix dimensions do not match")
-	}
-	for i := 0; i < m1.Rows; i++ {
-		for j := 0; j < m1.Cols; j++ {
-			Set(i, j, Get(i, j, m1)-Get(i, j, m2), out)
-		}
-	}
-	return nil
+	return elementWiseOp(m1, m2, out, func(a, b float64) float64 {
+		return a - b
+	})
 }
 
 func DotProduct(m1, m2, out *Matrix) error {
@@ -60,7 +48,7 @@ func DotProduct(m1, m2, out *Matrix) error {
 	if c1 != r2 {
 		return errors.New("Matrix dimensions are incompatable")
 	}
-	if len(m1.Data) > 200 {
+	if len(m1.Data) > 1000 {
 		pool := routines.GlobalPool
 
 		for i := 0; i < r1; i++ {
@@ -101,15 +89,9 @@ func Transpose(m *Matrix) *Matrix {
 }
 
 func MultiplyElementWise(m1, m2, out *Matrix) error {
-	if m1.Rows != m2.Rows || m1.Cols != m2.Cols {
-		return errors.New("Matrix dimensions do not match")
-	}
-	for i := 0; i < m1.Rows; i++ {
-		for j := 0; j < m1.Cols; j++ {
-			Set(i, j, Get(i, j, m1)*Get(i, j, m2), out)
-		}
-	}
-	return nil
+	return elementWiseOp(m1, m2, out, func(a, b float64) float64 {
+		return a * b
+	})
 }
 func MultiplyScalar(m *Matrix, scalar float64, out *Matrix) {
 	for i := 0; i < m.Rows; i++ {
@@ -117,6 +99,18 @@ func MultiplyScalar(m *Matrix, scalar float64, out *Matrix) {
 			Set(i, j, Get(i, j, m)*scalar, out)
 		}
 	}
+}
+
+func elementWiseOp(m1, m2, out *Matrix, op func(float64, float64) float64) error {
+	if m1.Rows != m2.Rows || m1.Cols != m2.Cols {
+		return errors.New("Matrix dimensions do not match")
+	}
+	for i := 0; i < m1.Rows; i++ {
+		for j := 0; j < m1.Cols; j++ {
+			Set(i, j, op(Get(i, j, m1), Get(i, j, m2)), out)
+		}
+	}
+	return nil
 }
 func ApplyFunction(m *Matrix, fn func(float64) float64, out *Matrix) {
 	for i := 0; i < m.Rows; i++ {
