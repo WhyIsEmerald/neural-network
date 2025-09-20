@@ -2,42 +2,65 @@ package network
 
 import (
 	"math/rand"
-	"time"
+
+	"github.com/whyisemerald/neural_network/internals/math"
+	"github.com/whyisemerald/neural_network/internals/matrix"
 )
 
 type Layer struct {
-	Neurons    []*neuron
+	Weights    *matrix.Matrix
+	Biases     *matrix.Matrix
+	Output     *matrix.Matrix
+	Deltas     *matrix.Matrix
+	Inputs     *matrix.Matrix
 	numNeurons int
 	numInputs  int
 }
 
 func NewLayer(numNeurons, numInputs int) *Layer {
-	neurons := make([]*neuron, numNeurons)
-	rand.Seed(time.Now().UnixNano())
-	for i := 0; i < numNeurons; i++ {
-		weights := make([]float64, numInputs)
-
-		for j := range weights {
-			weights[j] = rand.Float64() - 0.5
-		}
-		neurons[i] = newNeuron(weights, rand.Float64()-0.5)
+	weightsData := make([]float64, numInputs*numNeurons)
+	for i := range weightsData {
+		weightsData[i] = rand.Float64() - 0.5
 	}
-	return &Layer{Neurons: neurons, numNeurons: numNeurons, numInputs: numInputs}
+	weights := matrix.NewMatrix(numInputs, numNeurons, weightsData)
+
+	biasesData := make([]float64, numNeurons)
+	for i := range biasesData {
+		biasesData[i] = rand.Float64() - 0.5
+	}
+	biases := matrix.NewMatrix(1, numNeurons, biasesData)
+
+	return &Layer{
+		Weights:    weights,
+		Biases:     biases,
+		numNeurons: numNeurons,
+		numInputs:  numInputs,
+	}
 }
 
-func (L *Layer) resolveOutputs(inputs []float64) []float64 {
-	outputs := make([]float64, len(L.Neurons))
-	for i, neuron := range L.Neurons {
-		outputs[i] = neuron.resolveOutput(inputs)
-	}
-	return outputs
+func (l *Layer) Forward(inputs *matrix.Matrix) *matrix.Matrix {
+	l.Inputs = inputs
+
+	rawOutput := matrix.NewMatrix(inputs.Rows, l.Weights.Cols, make([]float64, inputs.Rows*l.Weights.Cols))
+	matrix.DotProduct(inputs, l.Weights, rawOutput)
+	matrix.Add(rawOutput, l.Biases, rawOutput)
+
+	l.Output = matrix.NewMatrix(rawOutput.Rows, rawOutput.Cols, make([]float64, len(rawOutput.Data)))
+	matrix.ApplyFunction(rawOutput, math.Sigmoid, l.Output)
+
+	return l.Output
 }
 
-func (L *Layer) update(learningRate float64) {
-	for _, neuron := range L.Neurons {
-		for i, input := range neuron.inputs {
-			neuron.weights[i] += learningRate * neuron.delta * input
-		}
-		neuron.bias += learningRate * neuron.delta
-	}
+func (l *Layer) Update(learningRate float64) {
+	inputsT := matrix.Transpose(l.Inputs)
+	weightGradients := matrix.NewMatrix(inputsT.Rows, l.Deltas.Cols, make([]float64, inputsT.Rows*l.Deltas.Cols))
+	matrix.DotProduct(inputsT, l.Deltas, weightGradients)
+
+	matrix.MultiplyScalar(weightGradients, learningRate, weightGradients)
+
+	matrix.Subtract(l.Weights, weightGradients, l.Weights)
+
+	biasGradients := matrix.NewMatrix(l.Deltas.Rows, l.Deltas.Cols, make([]float64, len(l.Deltas.Data)))
+	matrix.MultiplyScalar(l.Deltas, learningRate, biasGradients)
+	matrix.Subtract(l.Biases, biasGradients, l.Biases)
 }

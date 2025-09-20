@@ -17,11 +17,11 @@ func Relu(x float64) float64 {
 	return 0
 }
 
-func Softmax(x []float64) []float64 {
-	output := make([]float64, len(x))
+func Softmax(x *[]float64) []float64 {
+	output := make([]float64, len(*x))
 	sum := 0.0
-	for i := range x {
-		output[i] = math.Exp(x[i])
+	for i, v := range *x {
+		output[i] = math.Exp(v)
 		sum += output[i]
 	}
 	for i := range output {

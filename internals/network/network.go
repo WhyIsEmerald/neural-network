@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/whyisemerald/neural_network/internals/math"
+	"github.com/whyisemerald/neural_network/internals/matrix"
 )
 
 type Network struct {
@@ -24,43 +25,58 @@ func NewNetwork(layerSizes []int) *Network {
 	return &Network{Layers: layers}
 }
 
-func (n *Network) Forward(inputs []float64) []float64 {
-	currentInputs := inputs
-	if len(inputs) != n.Layers[0].numInputs {
+func (n *Network) Forward(inputs *[]float64) []float64 {
+	if len(*inputs) != n.Layers[0].numInputs {
 		panic("Input size does not match the number of inputs of the first layer")
 	}
+
+	currentInputsMatrix := matrix.NewMatrix(1, len(*inputs), *inputs)
+
 	for _, layer := range n.Layers {
-		currentInputs = layer.resolveOutputs(currentInputs)
+		currentInputsMatrix = layer.Forward(currentInputsMatrix)
 	}
-	return currentInputs
+
+	return currentInputsMatrix.Data
 }
 
-func (n *Network) Backward(expected []float64) {
+func (n *Network) Backward(expected *[]float64) {
+	expectedMatrix := matrix.NewMatrix(1, len(*expected), *expected)
+
 	for i := len(n.Layers) - 1; i >= 0; i-- {
 		layer := n.Layers[i]
 		if i == len(n.Layers)-1 {
-			for j, neuron := range layer.Neurons {
-				neuron.delta = (expected[j] - neuron.output) * math.SigmoidDerivative(neuron.output)
-			}
+			errorMatrix := matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
+			matrix.Subtract(layer.Output, expectedMatrix, errorMatrix)
+
+			derivativeMatrix := matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
+			matrix.ApplyFunction(layer.Output, math.SigmoidDerivative, derivativeMatrix)
+
+			layer.Deltas = matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
+			matrix.MultiplyElementWise(errorMatrix, derivativeMatrix, layer.Deltas)
+
 		} else {
-			for j, neuron := range layer.Neurons {
-				error := 0.0
-				for _, nextNeuron := range n.Layers[i+1].Neurons {
-					error += nextNeuron.weights[j] * nextNeuron.delta
-				}
-				neuron.delta = error * math.SigmoidDerivative(neuron.output)
-			}
+			nextLayer := n.Layers[i+1]
+
+			weightsT := matrix.Transpose(nextLayer.Weights)
+			errorMatrix := matrix.NewMatrix(nextLayer.Deltas.Rows, weightsT.Cols, make([]float64, nextLayer.Deltas.Rows*weightsT.Cols))
+			matrix.DotProduct(nextLayer.Deltas, weightsT, errorMatrix)
+
+			derivativeMatrix := matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
+			matrix.ApplyFunction(layer.Output, math.SigmoidDerivative, derivativeMatrix)
+
+			layer.Deltas = matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
+			matrix.MultiplyElementWise(errorMatrix, derivativeMatrix, layer.Deltas)
 		}
 	}
 }
 
 func (n *Network) Update(learningRate float64) {
 	for _, layer := range n.Layers {
-		layer.update(learningRate)
+		layer.Update(learningRate)
 	}
 }
 
-func (n *Network) Train(inputs, expected []float64, learningRate float64) {
+func (n *Network) Train(inputs, expected *[]float64, learningRate float64) {
 	n.Forward(inputs)
 	n.Backward(expected)
 	n.Update(learningRate)
@@ -69,7 +85,7 @@ func (n *Network) Train(inputs, expected []float64, learningRate float64) {
 func (n *Network) TrainLoop(input, expected [][]float64, learningRate float64, epoch int) {
 	for i := 0; i < epoch; i++ {
 		for j, in := range input {
-			n.Train(in, expected[j], learningRate)
+			n.Train(&in, &expected[j], learningRate)
 		}
 	}
 }
@@ -77,9 +93,13 @@ func (n *Network) TrainLoop(input, expected [][]float64, learningRate float64, e
 func (n *Network) getWeights() [][][]float64 {
 	weights := make([][][]float64, len(n.Layers))
 	for i, layer := range n.Layers {
-		weights[i] = make([][]float64, len(layer.Neurons))
-		for j, neuron := range layer.Neurons {
-			weights[i][j] = neuron.weights
+		weights[i] = make([][]float64, layer.numNeurons)
+		for j := 0; j < layer.numNeurons; j++ {
+			neuronWeights := make([]float64, layer.numInputs)
+			for k := 0; k < layer.numInputs; k++ {
+				neuronWeights[k] = matrix.Get(k, j, layer.Weights)
+			}
+			weights[i][j] = neuronWeights
 		}
 	}
 	return weights
@@ -88,27 +108,24 @@ func (n *Network) getWeights() [][][]float64 {
 func (n *Network) getBiases() [][]float64 {
 	biases := make([][]float64, len(n.Layers))
 	for i, layer := range n.Layers {
-		biases[i] = make([]float64, len(layer.Neurons))
-		for j, neuron := range layer.Neurons {
-			biases[i][j] = neuron.bias
-		}
+		biases[i] = layer.Biases.Data
 	}
 	return biases
 }
 
 func (n *Network) setWeights(weights [][][]float64) {
 	for i, layer := range n.Layers {
-		for j, neuron := range layer.Neurons {
-			neuron.weights = weights[i][j]
+		for j, neuronWeights := range weights[i] {
+			for k, weight := range neuronWeights {
+				matrix.Set(k, j, weight, layer.Weights)
+			}
 		}
 	}
 }
 
 func (n *Network) setBiases(biases [][]float64) {
 	for i, layer := range n.Layers {
-		for j, neuron := range layer.Neurons {
-			neuron.bias = biases[i][j]
-		}
+		layer.Biases.Data = biases[i]
 	}
 }
 
