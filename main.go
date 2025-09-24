@@ -22,7 +22,7 @@ func main() {
 	}
 	start := time.Now()
 	n := network.NewNetwork([]int{2, 2, 1})
-	n.TrainLoop(inputs, expected, 0.1, 1000000)
+	n.TrainLoop(inputs, expected, 0.1, 100000)
 	fmt.Printf("Training took: %v\n", time.Since(start))
 	start = time.Now()
 	input1 := []float64{0, 1}
