@@ -48,7 +48,7 @@ func DotProduct(m1, m2, out *Matrix) error {
 	if c1 != r2 {
 		return errors.New("Matrix dimensions are incompatable")
 	}
-	if len(m1.Data) > 100 {
+	if len(m1.Data) > 1000 {
 		pool := routines.GlobalPool
 
 		for i := 0; i < r1; i++ {
