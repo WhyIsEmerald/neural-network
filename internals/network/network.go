@@ -2,6 +2,7 @@ package network
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -84,8 +85,12 @@ func (n *Network) Train(inputs, expected *[]float64, learningRate float64) {
 
 func (n *Network) TrainLoop(input, expected [][]float64, learningRate float64, epoch int) {
 	for i := 0; i < epoch; i++ {
+		fmt.Printf("Epoch %d/%d\n", i+1, epoch)
 		for j, in := range input {
 			n.Train(&in, &expected[j], learningRate)
+			if (j+1)%1000 == 0 || j == len(input)-1 {
+				fmt.Printf("  Sample %d/%d\n", j+1, len(input))
+			}
 		}
 	}
 }
@@ -141,6 +146,31 @@ func (n *Network) Save(path string) error {
 	}
 
 	return os.WriteFile(path, file, 0644)
+}
+
+func Load(path string) (*Network, error) {
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var data NetworkData
+	err = json.Unmarshal(file, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	layerSizes := make([]int, len(data.Weights)+1)
+	layerSizes[0] = len(data.Weights[0][0])
+	for i, layerWeights := range data.Weights {
+		layerSizes[i+1] = len(layerWeights)
+	}
+
+	n := NewNetwork(layerSizes)
+	n.setWeights(data.Weights)
+	n.setBiases(data.Biases)
+
+	return n, nil
 }
 
 func (n *Network) Load(path string) error {
