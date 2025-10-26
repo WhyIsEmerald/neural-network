@@ -98,12 +98,22 @@ func Train() {
 		expected[i][regionIndex] = 1
 	}
 
-	// Create and train the network
+	// Create or load the network
+	var n *network.Network
+
+	n, err = network.Load(ModelPath)
+	if err == nil {
+		fmt.Printf("Loaded existing model from %s. Continuing training.\n", ModelPath)
+	} else {
+		fmt.Println("No existing model found or failed to load. Creating a new network.")
+		layerSizes := []int{2}
+		layerSizes = append(layerSizes, HiddenLayerSizes...)
+		layerSizes = append(layerSizes, numClasses)
+		n = network.NewNetwork(layerSizes)
+	}
+
+	// Train the network
 	fmt.Println("Training network...")
-	layerSizes := []int{2}
-	layerSizes = append(layerSizes, HiddenLayerSizes...)
-	layerSizes = append(layerSizes, numClasses)
-	n := network.NewNetwork(layerSizes)
 	n.TrainLoop(inputs, expected, LearningRate, Epochs)
 
 	fmt.Println("Training complete.")
@@ -112,6 +122,5 @@ func Train() {
 	if err := n.Save(ModelPath); err != nil {
 		panic(err)
 	}
-	fmt.Printf("Model saved to %s", ModelPath)
-
+	fmt.Printf("Model saved to %s\n", ModelPath)
 }

@@ -8,13 +8,13 @@ const (
 	ModelPath = "examples/geojson/saves/model.json"
 
 	// NumSamples is the number of points to generate for training
-	NumSamples = 10000
+	NumSamples = 50000
 
 	// LearningRate is the learning rate for training
 	LearningRate = 0.1
 
 	// Epochs is the number of training cycles
-	Epochs = 1000
+	Epochs = 800
 
 	// TestCount is the number of test points to generate for accuracy testing
 	TestCount = 1000
@@ -22,5 +22,5 @@ const (
 
 var (
 	// HiddenLayerSizes is a slice of integers representing the size of each hidden layer
-	HiddenLayerSizes = []int{50, 20}
+	HiddenLayerSizes = []int{30, 30, 30}
 )

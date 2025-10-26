@@ -2,7 +2,9 @@ package geojson
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"strconv"
@@ -21,6 +23,28 @@ func Forward() {
 		panic(err)
 	}
 	fmt.Printf("Loaded model from %s\n", ModelPath)
+
+	// Load GeoJSON data to get state names
+	file, err := ioutil.ReadFile(GeojsonPath)
+	if err != nil {
+		panic(err)
+	}
+
+	var featureCollection FeatureCollection
+	err = json.Unmarshal(file, &featureCollection)
+	if err != nil {
+		panic(err)
+	}
+
+	// Extract state names
+	stateNames := make([]string, len(featureCollection.Features))
+	for i, feature := range featureCollection.Features {
+		if name, ok := feature.Properties["NAME"].(string); ok {
+			stateNames[i] = name
+		} else {
+			stateNames[i] = fmt.Sprintf("Unknown State %d", i)
+		}
+	}
 
 	reader := bufio.NewReader(os.Stdin)
 
@@ -62,7 +86,11 @@ func Forward() {
 		}
 
 		fmt.Printf("Input coordinates: (%.4f, %.4f)\n", lon, lat)
-		fmt.Printf("Predicted region index: %d\n", predictedRegion)
+		if predictedRegion != -1 {
+			fmt.Printf("Predicted state: %s (Index: %d)\n", stateNames[predictedRegion], predictedRegion)
+		} else {
+			fmt.Printf("Predicted region index: %d\n", predictedRegion)
+		}
 		fmt.Printf("Probability: %.2f%%\n", maxProb*100)
 		fmt.Println("------------------------------------")
 	}
