@@ -86,12 +86,18 @@ func (n *Network) Train(inputs, expected *[]float64, learningRate float64) {
 func (n *Network) TrainLoop(input, expected [][]float64, learningRate float64, epoch int) {
 	for i := 0; i < epoch; i++ {
 		fmt.Printf("Epoch %d/%d\n", i+1, epoch)
+		const barWidth = 50
 		for j, in := range input {
 			n.Train(&in, &expected[j], learningRate)
-			if (j+1)%1000 == 0 || j == len(input)-1 {
-				fmt.Printf("  Sample %d/%d\n", j+1, len(input))
+
+			if (j+1)%(len(input)/100) == 0 || j == len(input)-1 { // Update progress bar at ~1% intervals
+				progress := float64(j+1) / float64(len(input))
+				pos := int(progress * barWidth)
+				bar := strings.Repeat("=", pos) + strings.Repeat(" ", barWidth-pos)
+				fmt.Printf("\r[%%s] %.2f%%", bar, progress*100)
 			}
 		}
+		fmt.Println() // Newline after progress bar is complete
 	}
 }
 
