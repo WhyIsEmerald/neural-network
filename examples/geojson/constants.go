@@ -22,5 +22,5 @@ const (
 
 var (
 	// HiddenLayerSizes is a slice of integers representing the size of each hidden layer
-	HiddenLayerSizes = []int{30, 30, 30}
+	HiddenLayerSizes = []int{20, 35, 20}
 )
