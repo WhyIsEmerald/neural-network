@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/whyisemerald/neural_network/internals/network"
+	"slices"
 )
 
 func Train() {
@@ -102,13 +103,19 @@ func Train() {
 	var n *network.Network
 
 	n, err = network.Load(ModelPath)
+
+	layerSizes := []int{2}
+	layerSizes = append(layerSizes, HiddenLayerSizes...)
+	layerSizes = append(layerSizes, numClasses)
+
 	if err == nil {
 		fmt.Printf("Loaded existing model from %s. Continuing training.\n", ModelPath)
+		if !slices.Equal(n.GetLayerSizes(), layerSizes) {
+			fmt.Println("Model architecture has changed. Creating a new network.")
+			n = network.NewNetwork(layerSizes)
+		}
 	} else {
 		fmt.Println("No existing model found or failed to load. Creating a new network.")
-		layerSizes := []int{2}
-		layerSizes = append(layerSizes, HiddenLayerSizes...)
-		layerSizes = append(layerSizes, numClasses)
 		n = network.NewNetwork(layerSizes)
 	}
 

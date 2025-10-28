@@ -154,6 +154,18 @@ func (n *Network) TrainLoop(input, expected [][]float64, learningRate float64, e
 	fmt.Printf("\rSample: [%s] 100.00%% (%d/%d)\n", strings.Repeat("=", barWidth), len(input), len(input))
 }
 
+func (n *Network) GetLayerSizes() []int {
+	layerSizes := make([]int, len(n.Layers)+1)
+	if len(n.Layers) > 0 {
+		layerSizes[0] = n.Layers[0].numInputs
+		for i, layer := range n.Layers {
+			layerSizes[i+1] = layer.numNeurons
+		}
+	}
+	return layerSizes
+}
+
+
 
 func (n *Network) getWeights() [][][]float64 {
 	weights := make([][][]float64, len(n.Layers))

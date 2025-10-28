@@ -8,16 +8,16 @@ const (
 	ModelPath = "examples/geojson/saves/model.json"
 
 	// NumSamples is the number of points to generate for training
-	NumSamples = 50000
+	NumSamples = 500000
 
 	// LearningRate is the learning rate for training
 	LearningRate = 0.1
 
 	// Epochs is the number of training cycles
-	Epochs = 800
+	Epochs = 500
 
 	// TestCount is the number of test points to generate for accuracy testing
-	TestCount = 1000
+	TestCount = 1000000
 )
 
 var (
