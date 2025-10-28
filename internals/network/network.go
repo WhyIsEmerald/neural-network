@@ -2,8 +2,11 @@ package network
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/whyisemerald/neural_network/internals/math"
 	"github.com/whyisemerald/neural_network/internals/matrix"
@@ -83,12 +86,86 @@ func (n *Network) Train(inputs, expected *[]float64, learningRate float64) {
 }
 
 func (n *Network) TrainLoop(input, expected [][]float64, learningRate float64, epoch int) {
+	const barWidth = 50
+	startTime := time.Now()
+	totalSamples := len(input) * epoch
+
+	// Initial print of epoch bar and sample bar
+	fmt.Printf("Epoch: [%s] %.2f%% (%d/%d) - Speed: -- samples/s - Time Left: --:--:--\n", strings.Repeat(" ", barWidth), 0.0, 0, epoch)
+	fmt.Printf("Sample: [%s] %.2f%% (%d/%d)\n", strings.Repeat(" ", barWidth), 0.0, 0, len(input))
+
 	for i := 0; i < epoch; i++ {
 		for j, in := range input {
 			n.Train(&in, &expected[j], learningRate)
+
+			currentSample := i*len(input) + j + 1
+			
+			// Calculate time left and speed
+			elapsedTime := time.Since(startTime)
+			var timeLeft time.Duration = 0 // Initialize timeLeft
+			var speed float64 = 0.0
+			if currentSample > 0 {
+				timePerSample := float64(elapsedTime) / float64(currentSample)
+				remainingSamples := totalSamples - currentSample
+				timeLeft = time.Duration(timePerSample * float64(remainingSamples))
+				speed = float64(currentSample) / elapsedTime.Seconds()
+			}
+
+			// Update sample progress bar
+			if (j+1)%(len(input)/100) == 0 || j == len(input)-1 { // Update sample bar at ~1% intervals
+				// Move cursor up 2 lines, clear both lines, then redraw
+				fmt.Print("\033[2A\033[K") 
+				
+				// Redraw epoch bar
+			epochProgress := float64(i) / float64(epoch)
+			epochBar := strings.Repeat("=", int(epochProgress*barWidth)) + strings.Repeat(" ", barWidth-int(epochProgress*barWidth))
+			fmt.Printf("\rEpoch: [%s] %.2f%% (%d/%d) - Speed: %.2f samples/s - Time Left: %s\n", epochBar, epochProgress*100, i+1, epoch, speed, timeLeft.Round(time.Second))
+
+				// Redraw sample bar
+			sampleProgress := float64(j+1) / float64(len(input))
+			sampleBar := strings.Repeat("=", int(sampleProgress*barWidth)) + strings.Repeat(" ", barWidth-int(sampleProgress*barWidth))
+			fmt.Printf("\rSample: [%s] %.2f%% (%d/%d)\n", sampleBar, sampleProgress*100, j+1, len(input))
+			}
+		}
+		// After each epoch, update epoch bar to reflect completion of current epoch
+		// And ensure sample bar is 100% for the completed epoch
+		fmt.Print("\033[2A\033[K") 
+		epochProgress := float64(i+1) / float64(epoch)
+		epochBar := strings.Repeat("=", int(epochProgress*barWidth)) + strings.Repeat(" ", barWidth-int(epochProgress*barWidth))
+		
+		// Recalculate timeLeft and speed for the end of the epoch
+		elapsedTime := time.Since(startTime)
+		var timeLeft time.Duration = 0
+		var speed float64 = 0.0
+		currentSample := (i+1)*len(input) // Total samples processed up to the end of this epoch
+		if currentSample > 0 {
+			timePerSample := float64(elapsedTime) / float64(currentSample)
+			remainingSamples := totalSamples - currentSample
+			timeLeft = time.Duration(timePerSample * float64(remainingSamples))
+			speed = float64(currentSample) / elapsedTime.Seconds()
+		}
+
+		fmt.Printf("\rEpoch: [%s] %.2f%% (%d/%d) - Speed: %.2f samples/s - Time Left: %s\n", epochBar, epochProgress*100, i+1, epoch, speed, timeLeft.Round(time.Second))
+		fmt.Printf("\rSample: [%s] 100.00%% (%d/%d)\n", strings.Repeat("=", barWidth), len(input), len(input))
+	}
+	// Final epoch bar (100%)
+	fmt.Print("\033[2A\033[K") 
+	fmt.Printf("\rEpoch: [%s] 100.00%% (%d/%d) - Speed: %.2f samples/s - Time Left: 0s\n", strings.Repeat("=", barWidth), epoch, epoch, float64(totalSamples)/time.Since(startTime).Seconds())
+	fmt.Printf("\rSample: [%s] 100.00%% (%d/%d)\n", strings.Repeat("=", barWidth), len(input), len(input))
+}
+
+func (n *Network) GetLayerSizes() []int {
+	layerSizes := make([]int, len(n.Layers)+1)
+	if len(n.Layers) > 0 {
+		layerSizes[0] = n.Layers[0].numInputs
+		for i, layer := range n.Layers {
+			layerSizes[i+1] = layer.numNeurons
 		}
 	}
+	return layerSizes
 }
+
+
 
 func (n *Network) getWeights() [][][]float64 {
 	weights := make([][][]float64, len(n.Layers))
@@ -141,6 +218,31 @@ func (n *Network) Save(path string) error {
 	}
 
 	return os.WriteFile(path, file, 0644)
+}
+
+func Load(path string) (*Network, error) {
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var data NetworkData
+	err = json.Unmarshal(file, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	layerSizes := make([]int, len(data.Weights)+1)
+	layerSizes[0] = len(data.Weights[0][0])
+	for i, layerWeights := range data.Weights {
+		layerSizes[i+1] = len(layerWeights)
+	}
+
+	n := NewNetwork(layerSizes)
+	n.setWeights(data.Weights)
+	n.setBiases(data.Biases)
+
+	return n, nil
 }
 
 func (n *Network) Load(path string) error {
