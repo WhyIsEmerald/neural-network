@@ -13,13 +13,11 @@ import (
 func Train() {
 	rand.Seed(time.Now().UnixNano())
 
-	// Load and extract GeoJSON data
 	geoData, err := LoadAndExtractGeoJSON(GeojsonPath)
 	if err != nil {
 		panic(err)
 	}
 
-	// Generate training data
 	inputs, expected := GenerateTrainingData(geoData, NumSamples)
 	numClasses := len(geoData.FeatureCollection.Features)
 

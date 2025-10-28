@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 )
 
-// ExtractedGeoJSON holds the data extracted from the GeoJSON file
 type ExtractedGeoJSON struct {
 	MultiPolygons     []MultiPolygon
 	MinLon, MinLat    float64
@@ -14,7 +13,6 @@ type ExtractedGeoJSON struct {
 	FeatureCollection *FeatureCollection
 }
 
-// LoadAndExtractGeoJSON reads a GeoJSON file, extracts polygons, and calculates the bounding box.
 func LoadAndExtractGeoJSON(path string) (*ExtractedGeoJSON, error) {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
