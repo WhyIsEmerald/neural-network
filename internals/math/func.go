@@ -17,8 +17,13 @@ func Relu(x float64) float64 {
 	return 0
 }
 
-// Softmax computes the normalized exponential function for a vector.
-// To improve numerical stability, the maximum value is subtracted from all elements before exponentiation.
+func ReluDerivative(x float64) float64 {
+	if x > 0 {
+		return 1
+	}
+	return 0
+}
+
 func Softmax(x *[]float64) []float64 {
 	output := make([]float64, len(*x))
 	maxVal := math.Inf(-1)

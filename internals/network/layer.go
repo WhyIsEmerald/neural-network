@@ -3,21 +3,24 @@ package network
 import (
 	"math/rand"
 
-	"github.com/whyisemerald/neural_network/internals/math"
 	"github.com/whyisemerald/neural_network/internals/matrix"
 )
 
+type Activation func(float64) float64
+
 type Layer struct {
-	Weights    *matrix.Matrix
-	Biases     *matrix.Matrix
-	Output     *matrix.Matrix
-	Deltas     *matrix.Matrix
-	Inputs     *matrix.Matrix
-	numNeurons int
-	numInputs  int
+	Weights              *matrix.Matrix
+	Biases               *matrix.Matrix
+	Output               *matrix.Matrix
+	Deltas               *matrix.Matrix
+	Inputs               *matrix.Matrix
+	activation           Activation
+	activationDerivative Activation
+	numNeurons           int
+	numInputs            int
 }
 
-func NewLayer(numNeurons, numInputs int) *Layer {
+func NewLayer(numNeurons, numInputs int, activation, activationDerivative Activation) *Layer {
 	weightsData := make([]float64, numInputs*numNeurons)
 	for i := range weightsData {
 		weightsData[i] = rand.Float64() - 0.5
@@ -31,10 +34,12 @@ func NewLayer(numNeurons, numInputs int) *Layer {
 	biases := matrix.NewMatrix(1, numNeurons, biasesData)
 
 	return &Layer{
-		Weights:    weights,
-		Biases:     biases,
-		numNeurons: numNeurons,
-		numInputs:  numInputs,
+		Weights:              weights,
+		Biases:               biases,
+		activation:           activation,
+		activationDerivative: activationDerivative,
+		numNeurons:           numNeurons,
+		numInputs:            numInputs,
 	}
 }
 
@@ -46,7 +51,7 @@ func (l *Layer) Forward(inputs *matrix.Matrix) *matrix.Matrix {
 	matrix.Add(rawOutput, l.Biases, rawOutput)
 
 	l.Output = matrix.NewMatrix(rawOutput.Rows, rawOutput.Cols, make([]float64, len(rawOutput.Data)))
-	matrix.ApplyFunction(rawOutput, math.Sigmoid, l.Output)
+	matrix.ApplyFunction(rawOutput, l.activation, l.Output)
 
 	return l.Output
 }

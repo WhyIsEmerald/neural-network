@@ -23,7 +23,12 @@ type NetworkData struct {
 func NewNetwork(layerSizes []int) *Network {
 	layers := make([]*Layer, len(layerSizes)-1)
 	for i := 0; i < len(layerSizes)-1; i++ {
-		layers[i] = NewLayer(layerSizes[i+1], layerSizes[i])
+		// Use ReLU for hidden layers, Sigmoid for the output layer
+		if i < len(layerSizes)-2 {
+			layers[i] = NewLayer(layerSizes[i+1], layerSizes[i], math.Relu, math.ReluDerivative)
+		} else {
+			layers[i] = NewLayer(layerSizes[i+1], layerSizes[i], math.Sigmoid, math.SigmoidDerivative)
+		}
 	}
 	return &Network{Layers: layers}
 }
@@ -52,7 +57,7 @@ func (n *Network) Backward(expected *[]float64) {
 			matrix.Subtract(layer.Output, expectedMatrix, errorMatrix)
 
 			derivativeMatrix := matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
-			matrix.ApplyFunction(layer.Output, math.SigmoidDerivative, derivativeMatrix)
+			matrix.ApplyFunction(layer.Output, layer.activationDerivative, derivativeMatrix)
 
 			layer.Deltas = matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
 			matrix.MultiplyElementWise(errorMatrix, derivativeMatrix, layer.Deltas)
@@ -65,7 +70,7 @@ func (n *Network) Backward(expected *[]float64) {
 			matrix.DotProduct(nextLayer.Deltas, weightsT, errorMatrix)
 
 			derivativeMatrix := matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
-			matrix.ApplyFunction(layer.Output, math.SigmoidDerivative, derivativeMatrix)
+			matrix.ApplyFunction(layer.Output, layer.activationDerivative, derivativeMatrix)
 
 			layer.Deltas = matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
 			matrix.MultiplyElementWise(errorMatrix, derivativeMatrix, layer.Deltas)
@@ -117,13 +122,13 @@ func (n *Network) TrainLoop(input, expected [][]float64, learningRate float64, e
 				fmt.Print("\033[2A\033[K") 
 				
 				// Redraw epoch bar
-			epochProgress := float64(i) / float64(epoch)
-			epochBar := strings.Repeat("=", int(epochProgress*barWidth)) + strings.Repeat(" ", barWidth-int(epochProgress*barWidth))
+		epochProgress := float64(i) / float64(epoch)
+		epochBar := strings.Repeat("=", int(epochProgress*barWidth)) + strings.Repeat(" ", barWidth-int(epochProgress*barWidth))
 			fmt.Printf("\rEpoch: [%s] %.2f%% (%d/%d) - Speed: %.2f samples/s - Time Left: %s\n", epochBar, epochProgress*100, i+1, epoch, speed, timeLeft.Round(time.Second))
 
 				// Redraw sample bar
-			sampleProgress := float64(j+1) / float64(len(input))
-			sampleBar := strings.Repeat("=", int(sampleProgress*barWidth)) + strings.Repeat(" ", barWidth-int(sampleProgress*barWidth))
+	sampleProgress := float64(j+1) / float64(len(input))
+	sampleBar := strings.Repeat("=", int(sampleProgress*barWidth)) + strings.Repeat(" ", barWidth-int(sampleProgress*barWidth))
 			fmt.Printf("\rSample: [%s] %.2f%% (%d/%d)\n", sampleBar, sampleProgress*100, j+1, len(input))
 			}
 		}
