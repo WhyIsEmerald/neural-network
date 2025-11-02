@@ -1,6 +1,80 @@
 package geojson
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+)
+
+type ExtractedGeoJSON struct {
+	MultiPolygons     []MultiPolygon
+	MinLon, MinLat    float64
+	MaxLon, MaxLat    float64
+	FeatureCollection *FeatureCollection
+}
+
+func LoadAndExtractGeoJSON(path string) (*ExtractedGeoJSON, error) {
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read geojson file: %w", err)
+	}
+
+	var featureCollection FeatureCollection
+	if err := json.Unmarshal(file, &featureCollection); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal geojson: %w", err)
+	}
+
+	var multiPolygons []MultiPolygon
+	minLon, minLat := 180.0, 90.0
+	maxLon, maxLat := -180.0, -90.0
+
+	for _, feature := range featureCollection.Features {
+		var multiPolygon MultiPolygon
+		switch feature.Geometry.Type {
+		case "Polygon":
+			var polygon Polygon
+			if err := json.Unmarshal(feature.Geometry.Coordinates, &polygon); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal polygon: %w", err)
+			}
+			multiPolygon = MultiPolygon{polygon}
+		case "MultiPolygon":
+			if err := json.Unmarshal(feature.Geometry.Coordinates, &multiPolygon); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal multipolygon: %w", err)
+			}
+		}
+
+		for _, polygon := range multiPolygon {
+			for _, ring := range polygon {
+				for _, point := range ring {
+					lon, lat := point[0], point[1]
+					if lon < minLon {
+						minLon = lon
+					}
+					if lon > maxLon {
+						maxLon = lon
+					}
+					if lat < minLat {
+						minLat = lat
+					}
+					if lat > maxLat {
+						maxLat = lat
+					}
+				}
+			}
+		}
+		multiPolygons = append(multiPolygons, multiPolygon)
+	}
+
+	return &ExtractedGeoJSON{
+		MultiPolygons:     multiPolygons,
+		MinLon:            minLon,
+		MinLat:            minLat,
+		MaxLon:            maxLon,
+		MaxLat:            maxLat,
+		FeatureCollection: &featureCollection,
+	}, nil
+}
+
 
 // GeoJSON structs
 type Point []float64

@@ -2,9 +2,7 @@ package geojson
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"strconv"
@@ -25,20 +23,14 @@ func Forward() {
 	fmt.Printf("Loaded model from %s\n", ModelPath)
 
 	// Load GeoJSON data to get state names
-	file, err := ioutil.ReadFile(GeojsonPath)
-	if err != nil {
-		panic(err)
-	}
-
-	var featureCollection FeatureCollection
-	err = json.Unmarshal(file, &featureCollection)
+	geoData, err := LoadAndExtractGeoJSON(GeojsonPath)
 	if err != nil {
 		panic(err)
 	}
 
 	// Extract state names
-	stateNames := make([]string, len(featureCollection.Features))
-	for i, feature := range featureCollection.Features {
+	stateNames := make([]string, len(geoData.FeatureCollection.Features))
+	for i, feature := range geoData.FeatureCollection.Features {
 		if name, ok := feature.Properties["NAME"].(string); ok {
 			stateNames[i] = name
 		} else {
