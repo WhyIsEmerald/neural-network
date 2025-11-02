@@ -13,7 +13,9 @@ import (
 )
 
 type Network struct {
-	Layers []*Layer
+	Layers         []*Layer
+	InputMatrix    *matrix.Matrix
+	ExpectedMatrix *matrix.Matrix
 }
 type NetworkData struct {
 	Weights [][][]float64
@@ -30,7 +32,15 @@ func NewNetwork(layerSizes []int) *Network {
 			layers[i] = NewLayer(layerSizes[i+1], layerSizes[i], math.Sigmoid, math.SigmoidDerivative)
 		}
 	}
-	return &Network{Layers: layers}
+
+	inputSize := layerSizes[0]
+	outputSize := layerSizes[len(layerSizes)-1]
+
+	return &Network{
+		Layers:         layers,
+		InputMatrix:    matrix.NewMatrix(1, inputSize, make([]float64, inputSize)),
+		ExpectedMatrix: matrix.NewMatrix(1, outputSize, make([]float64, outputSize)),
+	}
 }
 
 func (n *Network) Forward(inputs *[]float64) []float64 {
@@ -38,7 +48,8 @@ func (n *Network) Forward(inputs *[]float64) []float64 {
 		panic("Input size does not match the number of inputs of the first layer")
 	}
 
-	currentInputsMatrix := matrix.NewMatrix(1, len(*inputs), *inputs)
+	n.InputMatrix.Data = *inputs
+	currentInputsMatrix := n.InputMatrix
 
 	for _, layer := range n.Layers {
 		currentInputsMatrix = layer.Forward(currentInputsMatrix)
@@ -48,32 +59,23 @@ func (n *Network) Forward(inputs *[]float64) []float64 {
 }
 
 func (n *Network) Backward(expected *[]float64) {
-	expectedMatrix := matrix.NewMatrix(1, len(*expected), *expected)
+	n.ExpectedMatrix.Data = *expected
+	expectedMatrix := n.ExpectedMatrix
 
 	for i := len(n.Layers) - 1; i >= 0; i-- {
 		layer := n.Layers[i]
 		if i == len(n.Layers)-1 {
-			errorMatrix := matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
-			matrix.Subtract(layer.Output, expectedMatrix, errorMatrix)
-
-			derivativeMatrix := matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
-			matrix.ApplyFunction(layer.Output, layer.activationDerivative, derivativeMatrix)
-
-			layer.Deltas = matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
-			matrix.MultiplyElementWise(errorMatrix, derivativeMatrix, layer.Deltas)
-
+			// For the output layer
+			matrix.Subtract(layer.Output, expectedMatrix, layer.errorMatrix)
+			matrix.ApplyFunction(layer.Output, layer.activationDerivative, layer.derivativeMatrix)
+			matrix.MultiplyElementWise(layer.errorMatrix, layer.derivativeMatrix, layer.Deltas)
 		} else {
+			// For hidden layers
 			nextLayer := n.Layers[i+1]
-
 			weightsT := matrix.Transpose(nextLayer.Weights)
-			errorMatrix := matrix.NewMatrix(nextLayer.Deltas.Rows, weightsT.Cols, make([]float64, nextLayer.Deltas.Rows*weightsT.Cols))
-			matrix.DotProduct(nextLayer.Deltas, weightsT, errorMatrix)
-
-			derivativeMatrix := matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
-			matrix.ApplyFunction(layer.Output, layer.activationDerivative, derivativeMatrix)
-
-			layer.Deltas = matrix.NewMatrix(1, layer.numNeurons, make([]float64, layer.numNeurons))
-			matrix.MultiplyElementWise(errorMatrix, derivativeMatrix, layer.Deltas)
+			matrix.DotProduct(nextLayer.Deltas, weightsT, layer.errorMatrix)
+			matrix.ApplyFunction(layer.Output, layer.activationDerivative, layer.derivativeMatrix)
+			matrix.MultiplyElementWise(layer.errorMatrix, layer.derivativeMatrix, layer.Deltas)
 		}
 	}
 }
@@ -104,7 +106,7 @@ func (n *Network) TrainLoop(input, expected [][]float64, learningRate float64, e
 			n.Train(&in, &expected[j], learningRate)
 
 			currentSample := i*len(input) + j + 1
-			
+
 			// Calculate time left and speed
 			elapsedTime := time.Since(startTime)
 			var timeLeft time.Duration = 0 // Initialize timeLeft
@@ -119,30 +121,30 @@ func (n *Network) TrainLoop(input, expected [][]float64, learningRate float64, e
 			// Update sample progress bar
 			if (j+1)%(len(input)/100) == 0 || j == len(input)-1 { // Update sample bar at ~1% intervals
 				// Move cursor up 2 lines, clear both lines, then redraw
-				fmt.Print("\033[2A\033[K") 
-				
+				fmt.Print("\033[2A\033[K")
+
 				// Redraw epoch bar
-		epochProgress := float64(i) / float64(epoch)
-		epochBar := strings.Repeat("=", int(epochProgress*barWidth)) + strings.Repeat(" ", barWidth-int(epochProgress*barWidth))
+			epochProgress := float64(i) / float64(epoch)
+			epochBar := strings.Repeat("=", int(epochProgress*barWidth)) + strings.Repeat(" ", barWidth-int(epochProgress*barWidth))
 			fmt.Printf("\rEpoch: [%s] %.2f%% (%d/%d) - Speed: %.2f samples/s - Time Left: %s\n", epochBar, epochProgress*100, i+1, epoch, speed, timeLeft.Round(time.Second))
 
 				// Redraw sample bar
-	sampleProgress := float64(j+1) / float64(len(input))
-	sampleBar := strings.Repeat("=", int(sampleProgress*barWidth)) + strings.Repeat(" ", barWidth-int(sampleProgress*barWidth))
+			sampleProgress := float64(j+1) / float64(len(input))
+			sampleBar := strings.Repeat("=", int(sampleProgress*barWidth)) + strings.Repeat(" ", barWidth-int(sampleProgress*barWidth))
 			fmt.Printf("\rSample: [%s] %.2f%% (%d/%d)\n", sampleBar, sampleProgress*100, j+1, len(input))
 			}
 		}
 		// After each epoch, update epoch bar to reflect completion of current epoch
 		// And ensure sample bar is 100% for the completed epoch
-		fmt.Print("\033[2A\033[K") 
+		fmt.Print("\033[2A\033[K")
 		epochProgress := float64(i+1) / float64(epoch)
 		epochBar := strings.Repeat("=", int(epochProgress*barWidth)) + strings.Repeat(" ", barWidth-int(epochProgress*barWidth))
-		
+
 		// Recalculate timeLeft and speed for the end of the epoch
 		elapsedTime := time.Since(startTime)
 		var timeLeft time.Duration = 0
 		var speed float64 = 0.0
-		currentSample := (i+1)*len(input) // Total samples processed up to the end of this epoch
+		currentSample := (i + 1) * len(input) // Total samples processed up to the end of this epoch
 		if currentSample > 0 {
 			timePerSample := float64(elapsedTime) / float64(currentSample)
 			remainingSamples := totalSamples - currentSample
@@ -154,7 +156,7 @@ func (n *Network) TrainLoop(input, expected [][]float64, learningRate float64, e
 		fmt.Printf("\rSample: [%s] 100.00%% (%d/%d)\n", strings.Repeat("=", barWidth), len(input), len(input))
 	}
 	// Final epoch bar (100%)
-	fmt.Print("\033[2A\033[K") 
+	fmt.Print("\033[2A\033[K")
 	fmt.Printf("\rEpoch: [%s] 100.00%% (%d/%d) - Speed: %.2f samples/s - Time Left: 0s\n", strings.Repeat("=", barWidth), epoch, epoch, float64(totalSamples)/time.Since(startTime).Seconds())
 	fmt.Printf("\rSample: [%s] 100.00%% (%d/%d)\n", strings.Repeat("=", barWidth), len(input), len(input))
 }
@@ -169,8 +171,6 @@ func (n *Network) GetLayerSizes() []int {
 	}
 	return layerSizes
 }
-
-
 
 func (n *Network) getWeights() [][][]float64 {
 	weights := make([][][]float64, len(n.Layers))

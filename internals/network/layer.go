@@ -11,13 +11,20 @@ type Activation func(float64) float64
 type Layer struct {
 	Weights              *matrix.Matrix
 	Biases               *matrix.Matrix
-	Output               *matrix.Matrix
-	Deltas               *matrix.Matrix
-	Inputs               *matrix.Matrix
 	activation           Activation
 	activationDerivative Activation
 	numNeurons           int
 	numInputs            int
+
+	// Pre-allocated matrices
+	Output            *matrix.Matrix
+	Deltas            *matrix.Matrix
+	Inputs            *matrix.Matrix
+	rawOutput         *matrix.Matrix
+	weightGradients   *matrix.Matrix
+	biasGradients     *matrix.Matrix
+	errorMatrix       *matrix.Matrix
+	derivativeMatrix  *matrix.Matrix
 }
 
 func NewLayer(numNeurons, numInputs int, activation, activationDerivative Activation) *Layer {
@@ -40,32 +47,37 @@ func NewLayer(numNeurons, numInputs int, activation, activationDerivative Activa
 		activationDerivative: activationDerivative,
 		numNeurons:           numNeurons,
 		numInputs:            numInputs,
+
+		// Pre-allocate matrices. Assumes a batch size of 1.
+		Output:           matrix.NewMatrix(1, numNeurons, make([]float64, numNeurons)),
+		Deltas:           matrix.NewMatrix(1, numNeurons, make([]float64, numNeurons)),
+		rawOutput:        matrix.NewMatrix(1, numNeurons, make([]float64, numNeurons)),
+		weightGradients:  matrix.NewMatrix(numInputs, numNeurons, make([]float64, numInputs*numNeurons)),
+		biasGradients:    matrix.NewMatrix(1, numNeurons, make([]float64, numNeurons)),
+		errorMatrix:      matrix.NewMatrix(1, numNeurons, make([]float64, numNeurons)),
+		derivativeMatrix: matrix.NewMatrix(1, numNeurons, make([]float64, numNeurons)),
 	}
 }
 
 func (l *Layer) Forward(inputs *matrix.Matrix) *matrix.Matrix {
 	l.Inputs = inputs
 
-	rawOutput := matrix.NewMatrix(inputs.Rows, l.Weights.Cols, make([]float64, inputs.Rows*l.Weights.Cols))
-	matrix.DotProduct(inputs, l.Weights, rawOutput)
-	matrix.Add(rawOutput, l.Biases, rawOutput)
-
-	l.Output = matrix.NewMatrix(rawOutput.Rows, rawOutput.Cols, make([]float64, len(rawOutput.Data)))
-	matrix.ApplyFunction(rawOutput, l.activation, l.Output)
+	// Calculations use pre-allocated matrices. Assumes a consistent batch size.
+	matrix.DotProduct(inputs, l.Weights, l.rawOutput)
+	matrix.Add(l.rawOutput, l.Biases, l.rawOutput)
+	matrix.ApplyFunction(l.rawOutput, l.activation, l.Output)
 
 	return l.Output
 }
 
 func (l *Layer) Update(learningRate float64) {
 	inputsT := matrix.Transpose(l.Inputs)
-	weightGradients := matrix.NewMatrix(inputsT.Rows, l.Deltas.Cols, make([]float64, inputsT.Rows*l.Deltas.Cols))
-	matrix.DotProduct(inputsT, l.Deltas, weightGradients)
+	matrix.DotProduct(inputsT, l.Deltas, l.weightGradients)
 
-	matrix.MultiplyScalar(weightGradients, learningRate, weightGradients)
+	matrix.MultiplyScalar(l.weightGradients, learningRate, l.weightGradients)
 
-	matrix.Subtract(l.Weights, weightGradients, l.Weights)
+	matrix.Subtract(l.Weights, l.weightGradients, l.Weights)
 
-	biasGradients := matrix.NewMatrix(l.Deltas.Rows, l.Deltas.Cols, make([]float64, len(l.Deltas.Data)))
-	matrix.MultiplyScalar(l.Deltas, learningRate, biasGradients)
-	matrix.Subtract(l.Biases, biasGradients, l.Biases)
+	matrix.MultiplyScalar(l.Deltas, learningRate, l.biasGradients)
+	matrix.Subtract(l.Biases, l.biasGradients, l.Biases)
 }
