@@ -2,7 +2,7 @@ package geojson
 
 const (
 	// GeojsonPath is the path to the GeoJSON file
-	GeojsonPath = "data/IND_simple.geojson/IND_ADM1_simple.geojson"
+	GeojsonPath = "data/INDIA/india.geojson"
 
 	// ModelPath is the path to save the trained model
 	ModelPath = "examples/geojson/saves/model.json"
